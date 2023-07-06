@@ -9,6 +9,8 @@ number_of_processes_to_simulate = 4
 
 MPI_ANY_SOURCE = -1
 
+#Function classes for experiment
+
 class FindMin:
     def __init__(self, nums):
         self.nums = nums
@@ -88,23 +90,28 @@ def mpi_application(
 
     if rank == 0:
         # TODO implement coordinator logic
+        #Generate list of numbers
         randomlist = []
         for _ in range(0,10):
             n = random.randint(1,30)
             randomlist.append(n)
         print(randomlist)
+
+        #Define list of tasks to send to workers
         tasks = [FindMin,FindMax,FindMed,FindMean]
-        task_1 = random.choice(tasks)
-        task_2 = random.choice(tasks)
-        task_3 = random.choice(tasks)
-        send_f(task_1(randomlist),dest=1)
-        send_f(task_2(randomlist), dest=2)
-        send_f(task_3(randomlist), dest=3)
 
+        #send task to worker
+        for send_rank in range(1,size):
+            task = random.choice(tasks)
+            send_f(task(randomlist),dest=send_rank)
 
-        
+        #receive inputs from workers and save to CSV
         for _ in range(1, size):
-            print(recv_f(MPI_ANY_SOURCE))
+            #print(recv_f(MPI_ANY_SOURCE))
+            row = recv_f(MPI_ANY_SOURCE)
+            with open('values.csv','a') as fd:
+                writer = csv.writer(fd)
+                writer.writerow(row)
     else:
         # TODO implement worker logic
         task = recv_f(MPI_ANY_SOURCE)
@@ -112,10 +119,10 @@ def mpi_application(
         print(f"{task_name} received by {rank}")
         val = task.execute()
         row = [task_name,val]
-        with open('values.csv','a') as fd:
-            writer = csv.writer(fd)
-            writer.writerow(row)
-        send_f(f"Reply: I, process of rank {rank}, received {task_name}", dest=0)
+
+        #Send computed value and task name back to coordinator
+
+        send_f(row, dest = 0)
 
 
 ###############################################################################
